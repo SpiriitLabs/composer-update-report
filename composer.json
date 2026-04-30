@@ -1,0 +1,27 @@
+{
+    "name": "lotimopa/composer-update-report",
+    "description": "Composer plugin that generates a Markdown report after each composer update",
+    "type": "composer-plugin",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Anthony Delgado",
+            "email": "adelgado@spiriit.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "composer-plugin-api": "^2.0"
+    },
+    "require-dev": {
+        "composer/composer": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Lotimopa\\ComposerUpdateReport\\": "src/"
+        }
+    },
+    "extra": {
+        "class": "Lotimopa\\ComposerUpdateReport\\Plugin"
+    }
+}
