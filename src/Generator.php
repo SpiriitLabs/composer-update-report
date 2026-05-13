@@ -1,6 +1,6 @@
 <?php
 
-namespace Lotimopa\ComposerUpdateReport;
+namespace Spiriit\ComposerUpdateReport;
 
 use Composer\IO\IOInterface;
 
@@ -8,7 +8,8 @@ class Generator
 {
     public function __construct(
         private readonly string $workingDir,
-        private readonly IOInterface $io
+        private readonly IOInterface $io,
+        private readonly ?string $outputDir = null,
     ) {}
 
     public function run(): void
@@ -36,7 +37,16 @@ class Generator
             return;
         }
 
-        $outputFile = $this->workingDir . '/composer-update-' . date('Y-m-d') . '.md';
+        $outputBase = $this->outputDir
+            ? $this->workingDir . '/' . trim($this->outputDir, '/')
+            : $this->workingDir;
+
+        if (!is_dir($outputBase) && !mkdir($outputBase, 0755, true)) {
+            $this->io->writeError('<error>[composer-update-report] Cannot create directory: ' . $outputBase . '</error>');
+            return;
+        }
+
+        $outputFile = $outputBase . '/composer-update-' . date('Y-m-d') . '.md';
         $content = $this->generateMarkdown($diff);
 
         if (file_put_contents($outputFile, $content) === false) {

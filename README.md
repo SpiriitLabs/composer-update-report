@@ -75,6 +75,22 @@ Based on the `composer.lock` diff, here is a summary of all updated packages.
 * `drupal/obsolete_module` : `1.0.0`
 ```
 
+## Configuration
+
+By default the report is generated at the project root. You can change the output directory by adding the following to your `composer.json`:
+
+```json
+{
+    "extra": {
+        "composer-update-report": {
+            "output-dir": "reports/composer"
+        }
+    }
+}
+```
+
+The directory is created automatically if it does not exist. The path is relative to the project root.
+
 ## Notes
 
 - The report includes both `require` and `require-dev` packages.

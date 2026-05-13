@@ -1,5 +1,5 @@
 {
-    "name": "lotimopa/composer-update-report",
+    "name": "spiriitlabs/composer-update-report",
     "description": "Composer plugin that generates a Markdown report after each composer update",
     "type": "composer-plugin",
     "license": "MIT",
@@ -18,10 +18,10 @@
     },
     "autoload": {
         "psr-4": {
-            "Lotimopa\\ComposerUpdateReport\\": "src/"
+            "Spiriit\\ComposerUpdateReport\\": "src/"
         }
     },
     "extra": {
-        "class": "Lotimopa\\ComposerUpdateReport\\Plugin"
+        "class": "Spiriit\\ComposerUpdateReport\\Plugin"
     }
 }

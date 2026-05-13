@@ -1,6 +1,6 @@
 <?php
 
-namespace Lotimopa\ComposerUpdateReport;
+namespace Spiriit\ComposerUpdateReport;
 
 use Composer\Composer;
 use Composer\EventDispatcher\EventSubscriberInterface;
@@ -11,10 +11,12 @@ use Composer\Script\ScriptEvents;
 
 class Plugin implements PluginInterface, EventSubscriberInterface
 {
+    private Composer $composer;
     private IOInterface $io;
 
     public function activate(Composer $composer, IOInterface $io): void
     {
+        $this->composer = $composer;
         $this->io = $io;
     }
 
@@ -29,6 +31,15 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
     public function onPostUpdate(Event $event): void
     {
-        (new Generator(getcwd(), $this->io))->run();
+        $command = $_SERVER['argv'][1] ?? '';
+        if (!in_array($command, ['update', 'u'], true)) {
+            return;
+        }
+
+        $workingDir = getcwd();
+        $extra = $this->composer->getPackage()->getExtra();
+        $outputDir = $extra['composer-update-report']['output-dir'] ?? null;
+
+        (new Generator($workingDir, $this->io, $outputDir))->run();
     }
 }
