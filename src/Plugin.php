@@ -37,6 +37,11 @@ class Plugin implements PluginInterface, EventSubscriberInterface
         }
 
         $workingDir = getcwd();
+        if ($workingDir === false) {
+            $this->io->writeError('<error>[composer-update-report] Cannot determine working directory.</error>');
+            return;
+        }
+
         $extra = $this->composer->getPackage()->getExtra();
         $outputDir = $extra['composer-update-report']['output-dir'] ?? null;
 

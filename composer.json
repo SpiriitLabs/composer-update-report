@@ -14,11 +14,19 @@
         "composer-plugin-api": "^2.0"
     },
     "require-dev": {
-        "composer/composer": "^2.0"
+        "composer/composer": "^2.0",
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11"
     },
     "autoload": {
         "psr-4": {
             "Spiriit\\ComposerUpdateReport\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Spiriit\\ComposerUpdateReport\\Tests\\": "tests/"
         }
     },
     "extra": {
