@@ -11,7 +11,7 @@ A Composer plugin that automatically generates a Markdown report after each `com
 ## Installation
 
 ```bash
-composer require --dev lotimopa/composer-update-report
+composer require --dev spiriitlabs/composer-update-report
 ```
 
 > The plugin activates automatically upon installation — no additional configuration is required.
@@ -26,6 +26,12 @@ On each `composer update`, the plugin:
 4. Generates a `composer-update-YYYY-MM-DD.md` file at the project root
 
 If no version changes are detected, no file is created.
+
+### Same-day updates are merged
+
+If you run several `composer update` during the same day, the reports are **merged** into a single `composer-update-YYYY-MM-DD.md` rather than overwritten or appended.
+
+The first run of the day records the starting state of `composer.lock` (from Git `HEAD`) into a hidden baseline file (`.composer-update-YYYY-MM-DD.base.json`). Every subsequent run recomputes the diff against that baseline, so the report always reflects **all the updates of the day** as one consolidated summary — even if `composer.lock` was committed between two updates. The baseline file is per-day and can be safely ignored/deleted (it is git-ignored by default).
 
 ## Report contents
 

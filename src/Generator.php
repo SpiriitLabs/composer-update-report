@@ -15,10 +15,28 @@ class Generator
 
     public function run(): void
     {
-        $oldJson = $this->gitReader->show($this->workingDir, 'HEAD');
         $newJson = @file_get_contents($this->workingDir . '/composer.lock');
 
-        if (!$oldJson || !$newJson) {
+        if (!$newJson) {
+            $this->io->writeError('<warning>[composer-update-report] Cannot read composer.lock.</warning>');
+            return;
+        }
+
+        $outputBase = $this->outputDir
+            ? $this->workingDir . '/' . trim($this->outputDir, '/')
+            : $this->workingDir;
+
+        // Baseline = the project's composer.lock at the start of the day. The
+        // first run of the day records it from git HEAD; later runs reuse it so
+        // the report always reflects every update made during the whole day,
+        // even if composer.lock was committed in between (HEAD moving).
+        $baselineFile = $outputBase . '/.composer-update-' . date('Y-m-d') . '.base.json';
+        $hasBaseline = is_file($baselineFile);
+        $oldJson = $hasBaseline
+            ? @file_get_contents($baselineFile)
+            : $this->gitReader->show($this->workingDir, 'HEAD');
+
+        if (!$oldJson) {
             $this->io->writeError('<warning>[composer-update-report] Cannot read composer.lock from git HEAD.</warning>');
             return;
         }
@@ -38,13 +56,15 @@ class Generator
             return;
         }
 
-        $outputBase = $this->outputDir
-            ? $this->workingDir . '/' . trim($this->outputDir, '/')
-            : $this->workingDir;
-
         if (!is_dir($outputBase) && !mkdir($outputBase, 0o755, true)) {
             $this->io->writeError('<error>[composer-update-report] Cannot create directory: ' . $outputBase . '</error>');
             return;
+        }
+
+        // Persist the day's baseline on the first run so subsequent runs merge
+        // into a single consolidated report instead of overwriting it.
+        if (!$hasBaseline) {
+            @file_put_contents($baselineFile, $oldJson);
         }
 
         $outputFile = $outputBase . '/composer-update-' . date('Y-m-d') . '.md';
@@ -55,6 +75,6 @@ class Generator
             return;
         }
 
-        $this->io->write('<info>[composer-update-report] Report generated: ' . $outputFile . '</info>');
+        $this->io->write('<info>[composer-update-report] Report ' . ($hasBaseline ? 'updated' : 'generated') . ': ' . $outputFile . '</info>');
     }
 }
