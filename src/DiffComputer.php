@@ -5,6 +5,11 @@ namespace Spiriit\ComposerUpdateReport;
 class DiffComputer
 {
     /**
+     * Bucket key used for packages whose name has no `vendor/` prefix.
+     */
+    public const NO_VENDOR = '_other';
+
+    /**
      * @param array<string, mixed> $old
      * @param array<string, mixed> $new
      * @return array<string, mixed>
@@ -14,10 +19,7 @@ class DiffComputer
         $oldPkgs = $this->buildIndex($old);
         $newPkgs = $this->buildIndex($new);
 
-        $drupalCore = [];
-        $drupalContrib = [];
-        $symfony = [];
-        $other = [];
+        $updates = [];
         $added = [];
         $removed = [];
 
@@ -27,16 +29,8 @@ class DiffComputer
                 continue;
             }
             if ($this->normalizeVersion($oldPkgs[$name]) !== $this->normalizeVersion($version)) {
-                $change = ['name' => $name, 'from' => $oldPkgs[$name], 'to' => $version];
-                if (str_starts_with($name, 'drupal/core')) {
-                    $drupalCore[] = $change;
-                } elseif (str_starts_with($name, 'drupal/')) {
-                    $drupalContrib[] = $change;
-                } elseif (str_starts_with($name, 'symfony/')) {
-                    $symfony[] = $change;
-                } else {
-                    $other[] = $change;
-                }
+                $vendor = $this->vendorOf($name);
+                $updates[$vendor][] = ['name' => $name, 'from' => $oldPkgs[$name], 'to' => $version];
             }
         }
 
@@ -47,14 +41,46 @@ class DiffComputer
         }
 
         return [
-            'drupalCore' => $drupalCore,
-            'drupalContrib' => $drupalContrib,
-            'symfony' => $symfony,
-            'other' => $other,
+            'updates' => $this->sortVendors($updates),
             'added' => $added,
             'removed' => $removed,
-            'hasChanges' => (bool) ($drupalCore || $drupalContrib || $symfony || $other || $added || $removed),
+            'hasChanges' => (bool) ($updates || $added || $removed),
         ];
+    }
+
+    /**
+     * Extracts the Composer vendor (the part before the first `/`).
+     * Packages without a vendor prefix fall into the generic bucket.
+     */
+    private function vendorOf(string $name): string
+    {
+        $pos = strpos($name, '/');
+
+        return $pos === false ? self::NO_VENDOR : substr($name, 0, $pos);
+    }
+
+    /**
+     * Orders vendor groups by descending number of updated packages, then
+     * alphabetically, so the most heavily updated framework (Symfony, Drupal,
+     * Laravel, …) naturally surfaces first. The "no vendor" bucket is last.
+     *
+     * @param array<string, list<array{name: string, from: string, to: string}>> $updates
+     * @return array<string, list<array{name: string, from: string, to: string}>>
+     */
+    private function sortVendors(array $updates): array
+    {
+        uksort($updates, function (string $a, string $b) use ($updates): int {
+            if ($a === self::NO_VENDOR) {
+                return 1;
+            }
+            if ($b === self::NO_VENDOR) {
+                return -1;
+            }
+
+            return (count($updates[$b]) <=> count($updates[$a])) ?: strcmp($a, $b);
+        });
+
+        return $updates;
     }
 
     /**

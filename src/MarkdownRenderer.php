@@ -4,6 +4,25 @@ namespace Spiriit\ComposerUpdateReport;
 
 class MarkdownRenderer
 {
+    /**
+     * Curated emoji + display label for well-known vendors. Any other vendor
+     * falls back to a generic emoji and its capitalised vendor name, so the
+     * report stays meaningful for any project without configuration.
+     *
+     * @var array<string, array{0: string, 1: string}>
+     */
+    private const KNOWN_VENDORS = [
+        'drupal' => ['🔵', 'Drupal'],
+        'symfony' => ['🎵', 'Symfony'],
+        'laravel' => ['🔴', 'Laravel'],
+        'api-platform' => ['🟢', 'API Platform'],
+        'doctrine' => ['🟠', 'Doctrine'],
+        'twig' => ['🌿', 'Twig'],
+        'league' => ['🤝', 'League'],
+        'phpunit' => ['🧪', 'PHPUnit'],
+        'phpstan' => ['🔬', 'PHPStan'],
+    ];
+
     /** @param array<string, mixed> $diff */
     public function render(array $diff): string
     {
@@ -13,69 +32,16 @@ class MarkdownRenderer
         $out[] = '';
         $out[] = "Basé sur le diff de `composer.lock`, voici le résumé de tous les paquets mis à jour.";
 
-        $hasUpdates = $diff['drupalCore'] || $diff['drupalContrib'] || $diff['symfony'] || $diff['other'];
-
-        if ($hasUpdates) {
+        if ($diff['updates']) {
             $out[] = '';
             $out[] = '### 🚀 Mises à jour majeures et mineures';
 
-            if ($diff['drupalCore']) {
+            foreach ($diff['updates'] as $vendor => $packages) {
+                [$emoji, $label] = $this->vendorLabel($vendor);
                 $out[] = '';
-                $out[] = '#### 🔵 Drupal Core';
+                $out[] = "#### {$emoji} {$label}";
                 $out[] = '';
-                foreach ($diff['drupalCore'] as $pkg) {
-                    $out[] = "* `{$pkg['name']}` : `{$pkg['from']}` ➝ `{$pkg['to']}`";
-                }
-            }
-
-            if ($diff['drupalContrib']) {
-                $out[] = '';
-                $out[] = '#### 🧩 Modules Contrib Drupal';
-                $out[] = '';
-                foreach ($diff['drupalContrib'] as $pkg) {
-                    $out[] = "* `{$pkg['name']}` : `{$pkg['from']}` ➝ `{$pkg['to']}`";
-                }
-            }
-
-            if ($diff['symfony'] || $diff['other']) {
-                $out[] = '';
-                $out[] = '#### 📦 Bibliothèques sous-jacentes (Vendor)';
-                $out[] = '';
-
-                if ($diff['symfony']) {
-                    $groups = [];
-                    foreach ($diff['symfony'] as $pkg) {
-                        $groups[$pkg['from'] . '|||' . $pkg['to']][] = $pkg['name'];
-                    }
-
-                    if (count($groups) === 1) {
-                        [$from, $to] = explode('|||', array_key_first($groups));
-                        $names = $groups[array_key_first($groups)];
-                        sort($names);
-                        $out[] = "* **Composants Symfony** : Mise à jour de `{$from}` à `{$to}` :";
-                        $out[] = '';
-                        $out[] = '    * `' . implode('`, `', $names) . '`';
-                        $out[] = '';
-                    } else {
-                        $out[] = '* **Composants Symfony** :';
-                        $out[] = '';
-                        foreach ($groups as $key => $names) {
-                            [$from, $to] = explode('|||', $key);
-                            sort($names);
-                            $out[] = '    * `' . $from . '` ➝ `' . $to . '` : `' . implode('`, `', $names) . '`';
-                            $out[] = '';
-                        }
-                    }
-                }
-
-                if ($diff['other']) {
-                    $out[] = '* **Autres librairies** :';
-                    $out[] = '';
-                    foreach ($diff['other'] as $pkg) {
-                        $out[] = "    * `{$pkg['name']}` : `{$pkg['from']}` ➝ `{$pkg['to']}`";
-                    }
-                    $out[] = '';
-                }
+                $this->renderPackages($out, $packages);
             }
         }
 
@@ -98,5 +64,47 @@ class MarkdownRenderer
         }
 
         return implode("\n", $out) . "\n";
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function vendorLabel(string $vendor): array
+    {
+        if ($vendor === DiffComputer::NO_VENDOR) {
+            return ['📦', 'Autres librairies'];
+        }
+
+        return self::KNOWN_VENDORS[$vendor] ?? ['📦', ucfirst($vendor)];
+    }
+
+    /**
+     * Renders a vendor's package list. Packages sharing the same before/after
+     * version are grouped into a single entry (typical of Symfony components
+     * released in lockstep); the rest are listed one per line.
+     *
+     * @param list<string>                                          $out
+     * @param list<array{name: string, from: string, to: string}>  $packages
+     */
+    private function renderPackages(array &$out, array $packages): void
+    {
+        $groups = [];
+        foreach ($packages as $pkg) {
+            $groups[$pkg['from'] . '|||' . $pkg['to']][] = $pkg['name'];
+        }
+
+        foreach ($groups as $key => $names) {
+            [$from, $to] = explode('|||', $key);
+
+            if (count($names) > 1) {
+                sort($names);
+                $out[] = "* Mise à jour de `{$from}` à `{$to}` :";
+                $out[] = '';
+                $out[] = '    * `' . implode('`, `', $names) . '`';
+                $out[] = '';
+            } else {
+                $out[] = "* `{$names[0]}` : `{$from}` ➝ `{$to}`";
+            }
+        }
     }
 }
