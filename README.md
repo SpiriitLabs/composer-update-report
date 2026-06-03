@@ -2,6 +2,8 @@
 
 A Composer plugin that automatically generates a Markdown report after each `composer update`, by comparing the current `composer.lock` with the version recorded in Git.
 
+It is **framework-agnostic**: updated packages are grouped automatically by their Composer vendor (`drupal/*`, `symfony/*`, `laravel/*`, …), so the report highlights whatever stack your project uses — Drupal, Symfony, Laravel or any other — without any configuration.
+
 ## Requirements
 
 - PHP >= 8.1
@@ -22,7 +24,7 @@ On each `composer update`, the plugin:
 
 1. Reads `composer.lock` from `HEAD` (state before the update)
 2. Compares it with the current `composer.lock` (state after the update)
-3. Categorises the changes
+3. Groups updated packages by Composer vendor
 4. Generates a `composer-update-YYYY-MM-DD.md` file at the project root
 
 If no version changes are detected, no file is created.
@@ -37,13 +39,15 @@ The first run of the day records the starting state of `composer.lock` (from Git
 
 The report is structured into sections:
 
-| Section                   | Contents                                                          |
-|---------------------------|-------------------------------------------------------------------|
-| **Drupal Core**           | Updates to `drupal/core*` packages                                |
-| **Drupal Contrib Modules**| Updates to `drupal/*` packages                                    |
-| **Vendor Libraries**      | Symfony components (grouped by version) and other libraries       |
-| **New packages**          | Packages absent from the previous `composer.lock`                 |
-| **Removed packages**      | Packages present in the previous `composer.lock` but now removed  |
+| Section                   | Contents                                                                          |
+|---------------------------|-----------------------------------------------------------------------------------|
+| **Updates (per vendor)**  | One subsection per Composer vendor (`drupal`, `symfony`, …), most active first    |
+| **New packages**          | Packages absent from the previous `composer.lock`                                 |
+| **Removed packages**      | Packages present in the previous `composer.lock` but now removed                  |
+
+Updated packages are grouped automatically by their vendor prefix (the part before `/`). Vendors are ordered by the number of updated packages (descending), so the framework that changed the most appears first. Well-known vendors get a curated icon and label (Drupal, Symfony, Laravel, API Platform, Doctrine, Twig, League, PHPUnit, PHPStan); any other vendor falls back to a generic icon and its capitalised name. Packages with no `vendor/` prefix are gathered under **Autres librairies**.
+
+Within a vendor, packages that share the same before/after version are merged into a single line (typical of Symfony components released in lockstep).
 
 ### Example generated report
 
@@ -54,23 +58,20 @@ Based on the `composer.lock` diff, here is a summary of all updated packages.
 
 ### 🚀 Major and minor updates
 
-#### 🔵 Drupal Core
+#### 🎵 Symfony
 
-* `drupal/core` : `10.2.5` ➝ `10.3.0`
-
-#### 🧩 Drupal Contrib Modules
-
-* `drupal/pathauto` : `1.11.0` ➝ `1.12.0`
-
-#### 📦 Vendor libraries
-
-* **Symfony components** — updated from `6.4.6` to `6.4.8`:
+* Updated from `6.4.6` to `6.4.8`:
 
     * `symfony/console`, `symfony/http-kernel`, `symfony/routing`
 
-* **Other libraries**:
+#### 🔵 Drupal
 
-    * `league/csv` : `9.14.0` ➝ `9.15.0`
+* `drupal/core` : `10.2.5` ➝ `10.3.0`
+* `drupal/pathauto` : `1.11.0` ➝ `1.12.0`
+
+#### 📦 Autres librairies
+
+* `monolog` : `2.9.0` ➝ `3.0.0`
 
 ### ✅ New packages
 
@@ -100,7 +101,7 @@ The directory is created automatically if it does not exist. The path is relativ
 ## Notes
 
 - The report includes both `require` and `require-dev` packages.
-- Symfony components sharing the same before/after version are grouped into a single line for readability.
+- Packages sharing the same before/after version (within a vendor) are grouped into a single line for readability.
 - The generated file is not committed automatically; it is intended to be copied into a ticket, a PR, or a tracking tool.
 - If `composer.lock` does not yet exist in `HEAD` (first commit, empty repository), the plugin prints a warning and generates nothing.
 

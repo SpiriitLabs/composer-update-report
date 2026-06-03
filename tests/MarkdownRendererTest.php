@@ -3,6 +3,7 @@
 namespace Spiriit\ComposerUpdateReport\Tests;
 
 use PHPUnit\Framework\TestCase;
+use Spiriit\ComposerUpdateReport\DiffComputer;
 use Spiriit\ComposerUpdateReport\MarkdownRenderer;
 
 class MarkdownRendererTest extends TestCase
@@ -14,13 +15,14 @@ class MarkdownRendererTest extends TestCase
         $this->renderer = new MarkdownRenderer();
     }
 
+    /**
+     * @param array<string, mixed> $overrides
+     * @return array<string, mixed>
+     */
     private function diff(array $overrides = []): array
     {
         return array_merge([
-            'drupalCore' => [],
-            'drupalContrib' => [],
-            'symfony' => [],
-            'other' => [],
+            'updates' => [],
             'added' => [],
             'removed' => [],
             'hasChanges' => true,
@@ -34,35 +36,69 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('# Récapitulatif de la mise à jour du ' . date('d/m/Y'), $output);
     }
 
-    public function testDrupalCoreSection(): void
+    public function testKnownVendorGetsCuratedLabel(): void
     {
-        $diff = $this->diff(['drupalCore' => [
-            ['name' => 'drupal/core', 'from' => '10.2.0', 'to' => '10.3.0'],
+        $diff = $this->diff(['updates' => [
+            'drupal' => [
+                ['name' => 'drupal/core', 'from' => '10.2.0', 'to' => '10.3.0'],
+            ],
         ]]);
 
         $output = $this->renderer->render($diff);
 
-        $this->assertStringContainsString('#### 🔵 Drupal Core', $output);
+        $this->assertStringContainsString('#### 🔵 Drupal', $output);
         $this->assertStringContainsString('`drupal/core` : `10.2.0` ➝ `10.3.0`', $output);
     }
 
-    public function testDrupalContribSection(): void
+    public function testSymfonyVendorGetsCuratedLabel(): void
     {
-        $diff = $this->diff(['drupalContrib' => [
-            ['name' => 'drupal/pathauto', 'from' => '1.11.0', 'to' => '1.12.0'],
+        $diff = $this->diff(['updates' => [
+            'symfony' => [
+                ['name' => 'symfony/console', 'from' => '6.4.6', 'to' => '6.4.8'],
+            ],
         ]]);
 
         $output = $this->renderer->render($diff);
 
-        $this->assertStringContainsString('#### 🧩 Modules Contrib Drupal', $output);
-        $this->assertStringContainsString('`drupal/pathauto` : `1.11.0` ➝ `1.12.0`', $output);
+        $this->assertStringContainsString('#### 🎵 Symfony', $output);
+        $this->assertStringContainsString('`symfony/console` : `6.4.6` ➝ `6.4.8`', $output);
     }
 
-    public function testSymfonyGroupedWhenSameVersionChange(): void
+    public function testUnknownVendorFallsBackToCapitalisedName(): void
     {
-        $diff = $this->diff(['symfony' => [
-            ['name' => 'symfony/console', 'from' => '6.4.6', 'to' => '6.4.8'],
-            ['name' => 'symfony/http-kernel', 'from' => '6.4.6', 'to' => '6.4.8'],
+        $diff = $this->diff(['updates' => [
+            'acme' => [
+                ['name' => 'acme/widget', 'from' => '1.0.0', 'to' => '1.1.0'],
+            ],
+        ]]);
+
+        $output = $this->renderer->render($diff);
+
+        $this->assertStringContainsString('#### 📦 Acme', $output);
+        $this->assertStringContainsString('`acme/widget` : `1.0.0` ➝ `1.1.0`', $output);
+    }
+
+    public function testNoVendorBucketIsLabelledOtherLibraries(): void
+    {
+        $diff = $this->diff(['updates' => [
+            DiffComputer::NO_VENDOR => [
+                ['name' => 'monolog', 'from' => '2.0.0', 'to' => '3.0.0'],
+            ],
+        ]]);
+
+        $output = $this->renderer->render($diff);
+
+        $this->assertStringContainsString('#### 📦 Autres librairies', $output);
+        $this->assertStringContainsString('`monolog` : `2.0.0` ➝ `3.0.0`', $output);
+    }
+
+    public function testPackagesGroupedWhenSameVersionChange(): void
+    {
+        $diff = $this->diff(['updates' => [
+            'symfony' => [
+                ['name' => 'symfony/console', 'from' => '6.4.6', 'to' => '6.4.8'],
+                ['name' => 'symfony/http-kernel', 'from' => '6.4.6', 'to' => '6.4.8'],
+            ],
         ]]);
 
         $output = $this->renderer->render($diff);
@@ -70,34 +106,23 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('Mise à jour de `6.4.6` à `6.4.8`', $output);
         $this->assertStringContainsString('symfony/console', $output);
         $this->assertStringContainsString('symfony/http-kernel', $output);
-        // Should not repeat the version line twice
+        // The shared version line must appear only once.
         $this->assertSame(1, substr_count($output, 'Mise à jour de `6.4.6` à `6.4.8`'));
     }
 
-    public function testSymfonyNotGroupedWhenDifferentVersionChanges(): void
+    public function testPackagesNotGroupedWhenDifferentVersionChanges(): void
     {
-        $diff = $this->diff(['symfony' => [
-            ['name' => 'symfony/console', 'from' => '6.4.6', 'to' => '6.4.8'],
-            ['name' => 'symfony/routing', 'from' => '6.4.5', 'to' => '6.4.8'],
+        $diff = $this->diff(['updates' => [
+            'symfony' => [
+                ['name' => 'symfony/console', 'from' => '6.4.6', 'to' => '6.4.8'],
+                ['name' => 'symfony/routing', 'from' => '6.4.5', 'to' => '6.4.8'],
+            ],
         ]]);
 
         $output = $this->renderer->render($diff);
 
-        $this->assertStringContainsString('**Composants Symfony**', $output);
-        $this->assertStringContainsString('6.4.6` ➝ `6.4.8', $output);
-        $this->assertStringContainsString('6.4.5` ➝ `6.4.8', $output);
-    }
-
-    public function testOtherLibrariesSection(): void
-    {
-        $diff = $this->diff(['other' => [
-            ['name' => 'league/csv', 'from' => '9.14.0', 'to' => '9.15.0'],
-        ]]);
-
-        $output = $this->renderer->render($diff);
-
-        $this->assertStringContainsString('**Autres librairies**', $output);
-        $this->assertStringContainsString('`league/csv` : `9.14.0` ➝ `9.15.0`', $output);
+        $this->assertStringContainsString('`symfony/console` : `6.4.6` ➝ `6.4.8`', $output);
+        $this->assertStringContainsString('`symfony/routing` : `6.4.5` ➝ `6.4.8`', $output);
     }
 
     public function testAddedPackagesSection(): void
@@ -126,8 +151,7 @@ class MarkdownRendererTest extends TestCase
 
         $output = $this->renderer->render($diff);
 
-        $this->assertStringNotContainsString('Drupal Core', $output);
-        $this->assertStringNotContainsString('Modules Contrib', $output);
+        $this->assertStringNotContainsString('Mises à jour majeures', $output);
         $this->assertStringNotContainsString('Paquets supprimés', $output);
     }
 
