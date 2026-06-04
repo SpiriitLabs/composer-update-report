@@ -3,6 +3,8 @@
 namespace Spiriit\ComposerUpdateReport;
 
 use Composer\IO\IOInterface;
+use Spiriit\ComposerUpdateReport\Profile\AgnosticReportProfile;
+use Spiriit\ComposerUpdateReport\Profile\ReportProfileInterface;
 
 class Generator
 {
@@ -11,6 +13,7 @@ class Generator
         private readonly IOInterface $io,
         private readonly ?string $outputDir = null,
         private readonly GitReaderInterface $gitReader = new ShellGitReader(),
+        private readonly ReportProfileInterface $profile = new AgnosticReportProfile(),
     ) {}
 
     public function run(): void
@@ -52,7 +55,7 @@ class Generator
             return;
         }
 
-        $diff = (new DiffComputer())->compute($old, $new);
+        $diff = $this->profile->compute($old, $new);
 
         if (!$diff['hasChanges']) {
             $this->io->write('<info>[composer-update-report] No version changes detected.</info>');
@@ -74,7 +77,7 @@ class Generator
         }
 
         $outputFile = $outputBase . '/composer-update-' . date('Y-m-d') . '.md';
-        $content = (new MarkdownRenderer())->render($diff);
+        $content = $this->profile->render($diff);
 
         if (file_put_contents($outputFile, $content) === false) {
             $this->io->writeError('<error>[composer-update-report] Cannot write to ' . $outputFile . '</error>');

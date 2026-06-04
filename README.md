@@ -98,6 +98,22 @@ By default the report is generated at the project root. You can change the outpu
 
 The directory is created automatically if it does not exist. The path is relative to the project root.
 
+### Report profile
+
+By default the report uses the **agnostic** profile described above (grouping by Composer vendor). A dedicated **Drupal** profile is also available, which keeps the original layout with sections for *Drupal Core*, *Modules Contrib Drupal* and *Bibliothèques sous-jacentes (Vendor)*. Select it explicitly with the `profile` option:
+
+```json
+{
+    "extra": {
+        "composer-update-report": {
+            "profile": "drupal"
+        }
+    }
+}
+```
+
+Accepted values are `agnostic` (default) and `drupal`. An unknown value prints a warning and falls back to `agnostic`.
+
 ## Notes
 
 - The report includes both `require` and `require-dev` packages.
