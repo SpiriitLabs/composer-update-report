@@ -30,8 +30,11 @@ class Generator
         // first run of the day records it from git HEAD; later runs reuse it so
         // the report always reflects every update made during the whole day,
         // even if composer.lock was committed in between (HEAD moving).
-        $baselineFile = $outputBase . '/.composer-update-' . date('Y-m-d') . '.base.json';
-        $hasBaseline = is_file($baselineFile);
+        //
+        // It lives inside the repository's git directory (never tracked by git)
+        // so it can't leak into the project tree as a stray untracked file.
+        $baselineFile = $this->baselineFile();
+        $hasBaseline = $baselineFile !== null && is_file($baselineFile);
         $oldJson = $hasBaseline
             ? @file_get_contents($baselineFile)
             : $this->gitReader->show($this->workingDir, 'HEAD');
@@ -63,8 +66,11 @@ class Generator
 
         // Persist the day's baseline on the first run so subsequent runs merge
         // into a single consolidated report instead of overwriting it.
-        if (!$hasBaseline) {
-            @file_put_contents($baselineFile, $oldJson);
+        if (!$hasBaseline && $baselineFile !== null) {
+            $baselineDir = dirname($baselineFile);
+            if (is_dir($baselineDir) || @mkdir($baselineDir, 0o755, true)) {
+                @file_put_contents($baselineFile, $oldJson);
+            }
         }
 
         $outputFile = $outputBase . '/composer-update-' . date('Y-m-d') . '.md';
@@ -76,5 +82,20 @@ class Generator
         }
 
         $this->io->write('<info>[composer-update-report] Report ' . ($hasBaseline ? 'updated' : 'generated') . ': ' . $outputFile . '</info>');
+    }
+
+    /**
+     * Path of the day's baseline file, kept inside the git directory so it is
+     * never tracked. Returns null when the working dir is not a git repository.
+     */
+    private function baselineFile(): ?string
+    {
+        $gitDir = $this->gitReader->gitDir($this->workingDir);
+
+        if ($gitDir === null) {
+            return null;
+        }
+
+        return $gitDir . '/composer-update-report/baseline-' . date('Y-m-d') . '.json';
     }
 }

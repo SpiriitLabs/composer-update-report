@@ -33,7 +33,7 @@ If no version changes are detected, no file is created.
 
 If you run several `composer update` during the same day, the reports are **merged** into a single `composer-update-YYYY-MM-DD.md` rather than overwritten or appended.
 
-The first run of the day records the starting state of `composer.lock` (from Git `HEAD`) into a hidden baseline file (`.composer-update-YYYY-MM-DD.base.json`). Every subsequent run recomputes the diff against that baseline, so the report always reflects **all the updates of the day** as one consolidated summary — even if `composer.lock` was committed between two updates. The baseline file is per-day and can be safely ignored/deleted (it is git-ignored by default).
+The first run of the day records the starting state of `composer.lock` (from Git `HEAD`) into a per-day baseline file stored **inside the repository's git directory** (`.git/composer-update-report/baseline-YYYY-MM-DD.json`). Every subsequent run recomputes the diff against that baseline, so the report always reflects **all the updates of the day** as one consolidated summary — even if `composer.lock` was committed between two updates. Because the baseline lives under `.git/`, it is never tracked and never appears as a stray file in your project — no `.gitignore` entry is required.
 
 ## Report contents
 
