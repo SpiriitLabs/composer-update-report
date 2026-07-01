@@ -5,14 +5,15 @@ namespace Spiriit\ComposerUpdateReport;
 use Composer\Composer;
 use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\IO\IOInterface;
+use Composer\Plugin\Capable;
+use Composer\Plugin\Capability\CommandProvider as CommandProviderCapability;
 use Composer\Plugin\PluginInterface;
 use Composer\Script\Event;
 use Composer\Script\ScriptEvents;
-use Spiriit\ComposerUpdateReport\Profile\AgnosticReportProfile;
-use Spiriit\ComposerUpdateReport\Profile\DrupalReportProfile;
-use Spiriit\ComposerUpdateReport\Profile\ReportProfileInterface;
+use Spiriit\ComposerUpdateReport\Command\CommandProvider;
+use Spiriit\ComposerUpdateReport\Profile\ProfileFactory;
 
-class Plugin implements PluginInterface, EventSubscriberInterface
+class Plugin implements PluginInterface, EventSubscriberInterface, Capable
 {
     private Composer $composer;
     private IOInterface $io;
@@ -26,6 +27,11 @@ class Plugin implements PluginInterface, EventSubscriberInterface
     public function deactivate(Composer $composer, IOInterface $io): void {}
 
     public function uninstall(Composer $composer, IOInterface $io): void {}
+
+    public function getCapabilities(): array
+    {
+        return [CommandProviderCapability::class => CommandProvider::class];
+    }
 
     public static function getSubscribedEvents(): array
     {
@@ -47,29 +53,8 @@ class Plugin implements PluginInterface, EventSubscriberInterface
 
         $extra = $this->composer->getPackage()->getExtra();
         $outputDir = $extra['composer-update-report']['output-dir'] ?? null;
-        $profile = $this->resolveProfile($extra['composer-update-report']['profile'] ?? null);
+        $profile = ProfileFactory::create($extra['composer-update-report']['profile'] ?? null, $this->io);
 
         (new Generator($workingDir, $this->io, $outputDir, profile: $profile))->run();
-    }
-
-    /**
-     * Resolves the report profile from the `extra.composer-update-report.profile`
-     * setting. Defaults to the agnostic profile; an unknown value warns and
-     * falls back to it.
-     */
-    private function resolveProfile(?string $name): ReportProfileInterface
-    {
-        return match ($name) {
-            'drupal' => new DrupalReportProfile(),
-            'agnostic', null => new AgnosticReportProfile(),
-            default => $this->unknownProfile($name),
-        };
-    }
-
-    private function unknownProfile(string $name): ReportProfileInterface
-    {
-        $this->io->writeError("<warning>[composer-update-report] Unknown profile '{$name}', falling back to 'agnostic'.</warning>");
-
-        return new AgnosticReportProfile();
     }
 }
