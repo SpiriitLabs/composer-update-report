@@ -35,6 +35,32 @@ If you run several `composer update` during the same day, the reports are **merg
 
 The first run of the day records the starting state of `composer.lock` (from Git `HEAD`) into a per-day baseline file stored **inside the repository's git directory** (`.git/composer-update-report/baseline-YYYY-MM-DD.json`). Every subsequent run recomputes the diff against that baseline, so the report always reflects **all the updates of the day** as one consolidated summary — even if `composer.lock` was committed between two updates. Because the baseline lives under `.git/`, it is never tracked and never appears as a stray file in your project — no `.gitignore` entry is required.
 
+## Regenerating a report on demand
+
+Besides the automatic hook, a `update-report` Composer command regenerates the report
+from arbitrary git refs — without running `composer update`. This is handy while a
+branch is in progress: compare the current `composer.lock` against the base branch.
+
+```bash
+# Diff the working composer.lock against the base branch
+composer update-report --from=origin/develop
+
+# Diff two arbitrary refs
+composer update-report --from=v1.2.0 --to=v1.3.0
+```
+
+Options:
+
+| Option            | Default                          | Description                                        |
+|-------------------|----------------------------------|----------------------------------------------------|
+| `--from`          | `HEAD`                           | Git ref for the *before* state                     |
+| `--to`            | working `composer.lock`          | Git ref for the *after* state                      |
+| `--report-profile`| `extra` config (or `agnostic`)   | Force a profile (`agnostic` \| `drupal`) for this run |
+| `--output-dir`    | `extra` config (or project root) | Force the output directory for this run            |
+
+Unlike the automatic hook, this command never reads or writes the day baseline, so it
+can be run any number of times without interfering with the consolidated same-day report.
+
 ## Report contents
 
 The report is structured into sections:
